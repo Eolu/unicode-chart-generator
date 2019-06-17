@@ -150,7 +150,10 @@ public class UnicodeChartGenerator implements Iterable<String> {
     public UnicodeChartGenerator(InputStream source, List<String> delimiters, boolean header)
     {
         includeHeader = header;
-        generateChart(parse(source, delimiters.stream().collect(Collectors.joining("|"))));
+        List<String[]> parsed = parse(source, delimiters.stream().collect(Collectors.joining("|")));
+        if (!parsed.isEmpty()) {
+            generateChart(parsed);
+        }
     }
 
     /**
