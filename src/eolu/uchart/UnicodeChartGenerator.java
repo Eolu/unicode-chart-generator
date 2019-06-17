@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -28,7 +29,7 @@ import java.util.stream.Stream;
  * can also build your own charts from stdin, just insert a blank line to
  * terminate reading and generate the chart.
  * 
- * Usage: chart [-d delimiter]... [FILE]
+ * Usage: chart [-h] [-d delimiter]... [FILE]
  */
 public class UnicodeChartGenerator implements Iterable<String> {
     
@@ -56,10 +57,30 @@ public class UnicodeChartGenerator implements Iterable<String> {
     CHART_LOW_LEFT   = "└",
     CHART_LOW_CENTER = "┴",
     CHART_LOW_RIGHT  = "┘",
+    
+    // Bold or semi-bold characters used for the header
+    BOLD_HORIZONTAL = "━",
+    BOLD_VERTICAL = "┃",
+    BOLD_TOP_LEFT = "┏",
+    BOLD_TOP_RIGHT = "┓",
+    BOLD_TOP_CENTER = "┳",
+    BOLD_MID_LEFT = "┡",
+    BOLD_MID_RIGHT = "┩",
+    BOLD_MID_CENTER = "╇";
 
     // The default delimiter
-    DEFAULT_DELIMITER = "\\s+";
-
+    private static final String DEFAULT_DELIMITER = "\\s+";
+    
+    // Collectors
+    private static final Collector<? super String, ?, String>
+    TOP_ROW  = joining(CHART_TOP_CENTER, CHART_TOP_LEFT, CHART_TOP_RIGHT),
+    TOP_BOLD = joining(BOLD_TOP_CENTER, BOLD_TOP_LEFT, BOLD_TOP_RIGHT),
+    MID_ROW  = joining(CHART_VERTICAL, CHART_VERTICAL, CHART_VERTICAL),
+    MID_BOLD = joining(BOLD_VERTICAL, BOLD_VERTICAL, BOLD_VERTICAL),
+    SEP_ROW  = joining(CHART_MID_CENTER, CHART_MID_LEFT, CHART_MID_RIGHT),
+    SEP_BOLD = joining(BOLD_MID_CENTER, BOLD_MID_LEFT, BOLD_MID_RIGHT),
+    LOW_ROW  = joining(CHART_LOW_CENTER, CHART_LOW_LEFT, CHART_LOW_RIGHT);
+    
     /**
      * Entry-point
      * 
@@ -69,6 +90,7 @@ public class UnicodeChartGenerator implements Iterable<String> {
     {
         List<InputStream> fileInputStreams = new ArrayList<>();
         List<String> delimiters = new ArrayList<>();
+        boolean header = false;
 
         // Handle args
         for (int i = 0; i < args.length; i++)
@@ -80,6 +102,10 @@ public class UnicodeChartGenerator implements Iterable<String> {
             else if (args[i].startsWith("--delimiter="))
             {
                 delimiters.add(args[i].replaceFirst("--delimiter=", ""));
+            }
+            else if (args[i].equals("-h") || args[i].equals("--header"))
+            {
+                header = true;
             }
             else
             {
@@ -102,17 +128,18 @@ public class UnicodeChartGenerator implements Iterable<String> {
         // Determine whether files were specified or standard input should be used.
         if (fileInputStreams.isEmpty())
         {
-            new UnicodeChartGenerator(System.in, delimiters).forEach(System.out::println);
+            new UnicodeChartGenerator(System.in, delimiters, header).forEach(System.out::println);
         }
         else for (InputStream in : fileInputStreams)
         {
-            new UnicodeChartGenerator(in, delimiters).forEach(System.out::println);
+            new UnicodeChartGenerator(in, delimiters, header).forEach(System.out::println);
         }
     }
 
     // Data from the parsed input
     private final List<Integer> colWidths = new ArrayList<>();
     private final List<String> chart = new ArrayList<>();
+    private final boolean includeHeader;
 
     /**
      * Constructor. Generates a chart.
@@ -120,8 +147,9 @@ public class UnicodeChartGenerator implements Iterable<String> {
      * @param source The InputStream to read from.
      * @param delimiters The list of delimiters to use in element splitting.
      */
-    public UnicodeChartGenerator(InputStream source, List<String> delimiters)
+    public UnicodeChartGenerator(InputStream source, List<String> delimiters, boolean header)
     {
+        includeHeader = header;
         generateChart(parse(source, delimiters.stream().collect(Collectors.joining("|"))));
     }
 
@@ -140,7 +168,7 @@ public class UnicodeChartGenerator implements Iterable<String> {
             .peek(tokens -> range(0, tokens.length).forEach(i -> colWidths.set(i, max(colWidths.get(i), tokens[i].length()))))
             .collect(Collectors.toList());
     }
-
+    
     /**
      * Create the chart.
      * 
@@ -150,23 +178,34 @@ public class UnicodeChartGenerator implements Iterable<String> {
     private void generateChart(List<String[]> parseList)
     {
         // Create the top
+        final Collector<? super String, ?, String> topCollector = includeHeader ? TOP_BOLD : TOP_ROW;
         chart.add(range(0, colWidths.size()).map(i -> colWidths.get(i))
-                .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
-                .collect(joining(CHART_TOP_CENTER, CHART_TOP_LEFT, CHART_TOP_RIGHT)));
+                .mapToObj(i -> (includeHeader ? BOLD_HORIZONTAL : CHART_HORIZONTAL).repeat(i + 2))
+                .collect(topCollector));
 
         // Create the separator row
         final String separatorRow = range(0, colWidths.size()).map(i -> colWidths.get(i))
                 .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
-                .collect(joining(CHART_MID_CENTER, CHART_MID_LEFT, CHART_MID_RIGHT));
+                .collect(SEP_ROW);
 
-        // Generate every row
-        range(0, parseList.size()).mapToObj(parseList::get).map(this::generateRow)
-                .flatMap(row -> Stream.of(separatorRow, row)).skip(1).forEachOrdered(chart::add);
+        // Generate the top row. If it's a header, use bold
+        chart.add(generateRow(parseList.get(0), includeHeader ? MID_BOLD : MID_ROW));
+        chart.add(!includeHeader ? separatorRow : range(0, colWidths.size())
+                                                 .map(i -> colWidths.get(i))
+                                                 .mapToObj(i -> BOLD_HORIZONTAL.repeat(i + 2))
+                                                 .collect(SEP_BOLD));
+        
+        // Generate every row.
+        range(1, parseList.size()).mapToObj(parseList::get)
+                                  .map(tokens -> generateRow(tokens, MID_ROW))
+                                  .flatMap(row -> Stream.of(separatorRow, row))
+                                  .skip(1)
+                                  .forEachOrdered(chart::add);
 
         // Create the bottom
         chart.add(range(0, colWidths.size()).map(i -> colWidths.get(i))
-                .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
-                .collect(joining(CHART_LOW_CENTER, CHART_LOW_LEFT, CHART_LOW_RIGHT)));
+                                            .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
+                                            .collect(LOW_ROW));
     }
 
     /**
@@ -174,11 +213,11 @@ public class UnicodeChartGenerator implements Iterable<String> {
      * @param tokens The tokens containing the elements to fill the row with.
      * @return The generated row.
      */
-    private String generateRow(String[] tokens)
+    private String generateRow(String[] tokens, Collector<? super String, ?, String> collector)
     {
         return IntStream.range(0, colWidths.size())
                         .mapToObj(i -> generateCell(i, tokens))
-                        .collect(joining(CHART_VERTICAL, CHART_VERTICAL, CHART_VERTICAL));
+                        .collect(collector);
     }
 
     /**
