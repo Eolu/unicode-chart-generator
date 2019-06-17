@@ -59,14 +59,14 @@ public class UnicodeChartGenerator implements Iterable<String> {
     CHART_LOW_RIGHT  = "┘",
     
     // Bold or semi-bold characters used for the header
-    BOLD_HORIZONTAL = "━",
-    BOLD_VERTICAL = "┃",
-    BOLD_TOP_LEFT = "┏",
-    BOLD_TOP_RIGHT = "┓",
-    BOLD_TOP_CENTER = "┳",
-    BOLD_MID_LEFT = "┡",
-    BOLD_MID_RIGHT = "┩",
-    BOLD_MID_CENTER = "╇";
+    BOLD_HORIZONTAL  = "━",
+    BOLD_VERTICAL    = "┃",
+    BOLD_TOP_LEFT    = "┏",
+    BOLD_TOP_RIGHT   = "┓",
+    BOLD_TOP_CENTER  = "┳",
+    BOLD_MID_LEFT    = "┡",
+    BOLD_MID_RIGHT   = "┩",
+    BOLD_MID_CENTER  = "╇";
 
     // The default delimiter
     private static final String DEFAULT_DELIMITER = "\\s+";
