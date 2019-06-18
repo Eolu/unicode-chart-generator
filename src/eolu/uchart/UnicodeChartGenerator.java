@@ -32,10 +32,6 @@ import java.util.stream.IntStream;
  */
 public class UnicodeChartGenerator implements Iterable<String> {
     
-    // TODO: Allow charts with 1 row.
-    // TODO: Allow -h to take a number which specifies the number of rows that are
-    // bold. That means even the bottom row could be bold!
-    
     // Chart building block characters @formatter:off
     private static final String 
     
@@ -135,11 +131,11 @@ public class UnicodeChartGenerator implements Iterable<String> {
         // Determine whether files were specified or standard input should be used.
         if (fileInputStreams.isEmpty())
         {
-            new UnicodeChartGenerator(System.in, delimiters, header).forEach(System.out::println);
+            gen(System.in, delimiters, header).forEach(System.out::println);
         }
         else for (InputStream in : fileInputStreams)
         {
-            new UnicodeChartGenerator(in, delimiters, header).forEach(System.out::println);
+            gen(in, delimiters, header).forEach(System.out::println);
         }
     }
 
@@ -149,12 +145,25 @@ public class UnicodeChartGenerator implements Iterable<String> {
     private final boolean includeHeader;
 
     /**
+     * Factory to generate a chart.
+     * 
+     * @param source The InputStream to read from.
+     * @param delimiters The list of delimiters to use in element splitting.
+     * @param header If true, will embolden the top row.
+     */
+    public static UnicodeChartGenerator gen(InputStream source, List<String> delimiters, boolean header)
+    {
+        return new UnicodeChartGenerator(source, delimiters, header);
+    }
+    
+    /**
      * Constructor. Generates a chart.
      * 
      * @param source The InputStream to read from.
      * @param delimiters The list of delimiters to use in element splitting.
+     * @param header If true, will embolden the top row.
      */
-    public UnicodeChartGenerator(InputStream source, List<String> delimiters, boolean header)
+    private UnicodeChartGenerator(InputStream source, List<String> delimiters, boolean header)
     {
         includeHeader = header;
         List<String[]> parsed = parse(source, delimiters.stream().collect(Collectors.joining("|")));
@@ -294,8 +303,8 @@ public class UnicodeChartGenerator implements Iterable<String> {
      * @return An iterator containing the lines of the generated chart.
      */
     @Override
-    public Iterator<String> iterator() {
+    public Iterator<String> iterator() 
+    {
         return chart.iterator();
     }
-
 }
