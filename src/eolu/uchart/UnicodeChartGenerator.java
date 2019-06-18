@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 /**
  * A unicode chart generator. Jar it up then add this line to your .bashrc file:
@@ -32,6 +31,10 @@ import java.util.stream.Stream;
  * Usage: chart [-h] [-d delimiter]... [FILE]
  */
 public class UnicodeChartGenerator implements Iterable<String> {
+    
+    // TODO: Allow charts with 1 row.
+    // TODO: Allow -h to take a number which specifies the number of rows that are
+    // bold. That means even the bottom row could be bold!
     
     // Chart building block characters @formatter:off
     private static final String 
@@ -62,11 +65,14 @@ public class UnicodeChartGenerator implements Iterable<String> {
     BOLD_HORIZONTAL  = "━",
     BOLD_VERTICAL    = "┃",
     BOLD_TOP_LEFT    = "┏",
-    BOLD_TOP_RIGHT   = "┓",
     BOLD_TOP_CENTER  = "┳",
+    BOLD_TOP_RIGHT   = "┓",
     BOLD_MID_LEFT    = "┡",
     BOLD_MID_RIGHT   = "┩",
-    BOLD_MID_CENTER  = "╇";
+    BOLD_MID_CENTER  = "╇",
+    BOLD_LOW_LEFT   = "┗",
+    BOLD_LOW_CENTER = "┻",
+    BOLD_LOW_RIGHT  = "┛";
 
     // The default delimiter
     private static final String DEFAULT_DELIMITER = "\\s+";
@@ -79,7 +85,8 @@ public class UnicodeChartGenerator implements Iterable<String> {
     MID_BOLD = joining(BOLD_VERTICAL, BOLD_VERTICAL, BOLD_VERTICAL),
     SEP_ROW  = joining(CHART_MID_CENTER, CHART_MID_LEFT, CHART_MID_RIGHT),
     SEP_BOLD = joining(BOLD_MID_CENTER, BOLD_MID_LEFT, BOLD_MID_RIGHT),
-    LOW_ROW  = joining(CHART_LOW_CENTER, CHART_LOW_LEFT, CHART_LOW_RIGHT);
+    LOW_ROW  = joining(CHART_LOW_CENTER, CHART_LOW_LEFT, CHART_LOW_RIGHT),
+    LOW_BOLD = joining(BOLD_LOW_LEFT, BOLD_LOW_CENTER, BOLD_LOW_RIGHT);
     
     /**
      * Entry-point
@@ -152,7 +159,7 @@ public class UnicodeChartGenerator implements Iterable<String> {
         includeHeader = header;
         List<String[]> parsed = parse(source, delimiters.stream().collect(Collectors.joining("|")));
         if (!parsed.isEmpty()) {
-            generateChart(parsed);
+            genChart(parsed);
         }
     }
 
@@ -178,48 +185,78 @@ public class UnicodeChartGenerator implements Iterable<String> {
      * @param parseList This list of parsed text.
      * @return The chart, as a list of strings.
      */
-    private void generateChart(List<String[]> parseList)
+    private void genChart(List<String[]> parseList)
     {
+        // Create the non-value rows
+        final String topRow = genEdge(CHART_HORIZONTAL, TOP_ROW);
+        final String topBold = includeHeader ? genEdge(BOLD_HORIZONTAL, TOP_BOLD) : null;
+        final String separatorRow = genSeparator(CHART_HORIZONTAL, SEP_ROW);
+        final String separatorBold = includeHeader ? genSeparator(BOLD_HORIZONTAL, SEP_BOLD) : null;
+        final String bottomRow = genEdge(CHART_HORIZONTAL, LOW_ROW);
+        final String bottomBold = includeHeader ? genEdge(BOLD_HORIZONTAL, LOW_BOLD) : null;
+        
         // Create the top
-        final Collector<? super String, ?, String> topCollector = includeHeader ? TOP_BOLD : TOP_ROW;
-        chart.add(range(0, colWidths.size()).map(i -> colWidths.get(i))
-                .mapToObj(i -> (includeHeader ? BOLD_HORIZONTAL : CHART_HORIZONTAL).repeat(i + 2))
-                .collect(topCollector));
-
-        // Create the separator row
-        final String separatorRow = range(0, colWidths.size()).map(i -> colWidths.get(i))
-                .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
-                .collect(SEP_ROW);
+        chart.add(includeHeader ? topBold : topRow);
 
         // Generate the top row. If it's a header, use bold
-        chart.add(generateRow(parseList.get(0), includeHeader ? MID_BOLD : MID_ROW));
-        chart.add(!includeHeader ? separatorRow : range(0, colWidths.size())
-                                                 .map(i -> colWidths.get(i))
-                                                 .mapToObj(i -> BOLD_HORIZONTAL.repeat(i + 2))
-                                                 .collect(SEP_BOLD));
+        chart.add(genValueRow(parseList.get(0), includeHeader ? MID_BOLD : MID_ROW));
         
-        // Generate every row.
-        range(1, parseList.size()).mapToObj(parseList::get)
-                                  .map(tokens -> generateRow(tokens, MID_ROW))
-                                  .flatMap(row -> Stream.of(separatorRow, row))
-                                  .skip(1)
-                                  .forEachOrdered(chart::add);
+        // Generate a separator row
+        if (parseList.size() > 1)
+        {
+            chart.add(includeHeader ? separatorBold : separatorRow);
+        }
+        
+        // Generate each value row
+        for (int i = 1; i < parseList.size(); i++)
+        {
+            if (i > 1)
+            {
+                chart.add(separatorRow);
+            }
+            chart.add(genValueRow(parseList.get(i), MID_ROW));
+        }
 
         // Create the bottom
-        chart.add(range(0, colWidths.size()).map(i -> colWidths.get(i))
-                                            .mapToObj(i -> CHART_HORIZONTAL.repeat(i + 2))
-                                            .collect(LOW_ROW));
+        chart.add(parseList.size() < 2 && includeHeader ? bottomBold : bottomRow);
+    }
+    
+    /**
+     * @brief Generate a top or bottom row.
+     * @param fill The character to fill empty space with.
+     * @param collector Collector to define cell boundaries.
+     * @return The generated row.
+     */
+    private String genEdge(String fill, Collector<? super String, ?, String> collector) {
+        return IntStream.range(0, colWidths.size())
+                        .map(i -> colWidths.get(i))
+                        .mapToObj(i -> fill.repeat(i + 2))
+                        .collect(collector);
+    }
+    
+    /**
+     * @brief Generate a single separator row.
+     * @param fill The character to fill empty space with.
+     * @param collector Collector to define cell boundaries.
+     * @return The generated separator row.
+     */
+    private String genSeparator(String fill, Collector<? super String, ?, String> collector) {
+        return IntStream.range(0, colWidths.size())
+                        .map(i -> colWidths.get(i))
+                        .mapToObj(i -> fill.repeat(i + 2))
+                        .collect(collector);
     }
 
     /**
      * @brief Generate a single row from an array of tokens.
      * @param tokens The tokens containing the elements to fill the row with.
+     * @param collector Collector to define cell boundaries.
      * @return The generated row.
      */
-    private String generateRow(String[] tokens, Collector<? super String, ?, String> collector)
+    private String genValueRow(String[] tokens, Collector<? super String, ?, String> collector)
     {
         return IntStream.range(0, colWidths.size())
-                        .mapToObj(i -> generateCell(i, tokens))
+                        .mapToObj(i -> genCell(i, tokens))
                         .collect(collector);
     }
 
@@ -229,7 +266,7 @@ public class UnicodeChartGenerator implements Iterable<String> {
      * @param tokens The list of tokens for the given row.
      * @return The generated cell, as a String.
      */
-    private String generateCell(int index, String[] tokens)
+    private String genCell(int index, String[] tokens)
     {
         if (index < tokens.length) 
         {
