@@ -1,6 +1,6 @@
 # Unicode Chart Generator
 
-This is a chart generator which reads in some text from standard input and outputs a chart to standard output.
+This is a chart generator which reads in some text from standard input (or a file) and outputs a chart to standard output.
 
 Usage is as follows:
 ```
@@ -30,3 +30,7 @@ will output a chart like so:
 │ DISTRACTION │  SECRET   │    THEATRE     │  EMBEDDED  │ TRANSFORMATION │ DIGERIDOO │  /  │     ?     │
 └─────────────┴───────────┴────────────────┴────────────┴────────────────┴───────────┴─────┴───────────┘
 ```
+
+The `-h` will just make the top row bold (think 'header', not 'help').
+
+The `FILE` argument may be left out to read from standard input.
