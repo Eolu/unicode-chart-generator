@@ -1,2 +1,3 @@
 *.hs linguist-detectable=true
-*.java linguist-detectable=false
+*.rs linguist-detectable=true
+*.java linguist-detectable=true
