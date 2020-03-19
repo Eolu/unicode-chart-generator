@@ -56,7 +56,7 @@ fn main() -> io::Result<()>
     // Get the widths of each column
     let sizes = input.iter()
                      .map(|line| Box::new(line.iter().map(|s| s.len() + 2)) as Box<dyn Iterator<Item = usize>>)
-                     .fold1(|acc, lengths| Box::new(acc.zip(lengths).map(|i| -> usize{max(i.0, i.1)})))
+                     .fold1(|acc, lengths| Box::new(acc.zip(lengths).map(lift_tuple(max))))
                      .unwrap()
                      .collect();
 
@@ -64,6 +64,13 @@ fn main() -> io::Result<()>
     println!("{}", gen_chart(input, sizes, include_header));
 
     Ok(())
+}
+
+/// Take a function that takes two arguments and return a function that takes a 2-tuple
+fn lift_tuple<F, T, U, R>(f: F) -> impl Fn((T,U)) -> R where
+    F: Fn(T, U) -> R
+{
+    move |tup: (T, U)| f(tup.0, tup.1)
 }
 
 /// Convert an input string into tokens based on some delimiters
