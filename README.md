@@ -11,6 +11,10 @@ split the input into discrete elements. Any number of delimiters may be used. Fo
 ```
 chart -d "," -d ";" file.txt
 ```
+OR
+```
+cat file.txt | chart -d "," -d ";"
+```
 assuming file.txt contains this content:
 ```
 MICE,DOUBLOONS,RASCALS,COMPASSION,COLD WAR,OBOE,Y/N,RESULT
