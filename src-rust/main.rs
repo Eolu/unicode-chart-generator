@@ -1,12 +1,12 @@
+pub mod chart;
+
 use std::io::{self, Read, Error, ErrorKind};
 use std::env::{args};
 use std::fs;
 use std::cmp::{max};
 use InputInfo::{StdIn,File};
 use itertools::Itertools;
-use crate::chart::gen_chart;
-
-pub mod chart;
+pub use crate::chart::gen_chart;
 
 const USAGE : &str = "usage: Usage: chart [-h] [-d delimiter]... [FILE]";
 
