@@ -1,0 +1,13 @@
+[package]
+name = "unicode-chart-generator"
+version = "0.1.0"
+authors = ["Griffin O'Neill <gsoneill1003@gmail.com>"]
+edition = "2018"
+publish = false
+
+[[bin]]
+name = "unicode-chart-generator"
+path = "src-rust/main.rs"
+
+[dependencies]
+itertools = "0.9"
