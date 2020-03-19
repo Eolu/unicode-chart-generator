@@ -4,28 +4,9 @@ use std::fs;
 use std::cmp::{max};
 use InputInfo::{StdIn,File};
 use itertools::Itertools;
+use crate::chart::gen_chart;
 
-/// Chart building block characters
-#[derive(Debug)]
-struct Font
-{
-    blankspace: char, horizontal: char, vertical:   char,
-    top_left:   char, mid_left:   char, low_left:   char,
-    top_center: char, mid_center: char, low_center: char,
-    top_right:  char, mid_right:  char, low_right:  char
-}
-
-/// The basic chart font
-const BASE_FONT : Font = Font{ blankspace: ' ', horizontal: '─', vertical:   '│',
-                               top_left:   '┌', mid_left:   '├', low_left:   '└',
-                               top_center: '┬', mid_center: '┼', low_center: '┴',
-                               top_right:  '┐', mid_right:  '┤', low_right:  '┘' };
-
-/// Bold chart font
-const BOLD_FONT : Font = Font{ blankspace: ' ', horizontal: '━', vertical:   '┏',
-                               top_left:   '┏', mid_left:   '┡', low_left:   '┗',
-                               top_center: '┳', mid_center: '╇', low_center: '┻',
-                               top_right:  '┓', mid_right:  '┩', low_right:  '┛' };
+pub mod chart;
 
 const USAGE : &str = "usage: Usage: chart [-h] [-d delimiter]... [FILE]";
 
@@ -42,12 +23,6 @@ enum InputInfo
     /// * file The file to read from.
     File(bool, Vec<String>, String)
 }
-
-// Useless function, but showing off the lifetime annotation ('a)
-// fn split<'a>(string: &'a str, delimiters:  &'a str) -> impl Iterator<Item = &'a str>
-// {
-//     string.split(delimiters)
-// }
 
 /// Entry-point
 fn main() -> io::Result<()>
@@ -74,115 +49,21 @@ fn main() -> io::Result<()>
             fs::read_to_string(file)?
         }
     };
-    println!("DELIMS: {:?}", delimiters);
 
     // Shadow input with the tokenized version
     let input = tokenize(input.as_str(), delimiters);
 
     // Get the widths of each column
-    // TODO: This make a lot of vectors and is more inefficient than it should need to be
     let sizes = input.iter()
-                     .map(|line| line.iter().map(|s| s.len() + 2).collect::<Vec<usize>>())
-                     .fold1(|acc, lengths| acc.iter().zip(lengths).map(|i| -> usize{max(*i.0, i.1)}).collect())
-                     .unwrap();
+                     .map(|line| Box::new(line.iter().map(|s| s.len() + 2)) as Box<dyn Iterator<Item = usize>>)
+                     .fold1(|acc, lengths| Box::new(acc.zip(lengths).map(|i| -> usize{max(i.0, i.1)})))
+                     .unwrap()
+                     .collect();
 
-    // Allocate a string on the heap to contain output
-    let mut output = String::new();
+    // Generate chart and print output
+    println!("{}", gen_chart(input, sizes, include_header));
 
-    // Generate chart
-    gen_top(&sizes, include_header, &mut output);
-    output.push('\n');
-    for i in 0..input.len()
-    {
-        gen_row(input.get(i).unwrap(), &sizes, &mut output);
-        output.push('\n');
-        if i != input.len() - 1
-        {
-            gen_separator(&sizes, &mut output);
-            output.push('\n');
-        }
-    }
-    gen_bottom(&sizes, include_header && input.is_empty(), &mut output);
-    output.push('\n');
-
-    // Print output
-    println!("{}", output);
     Ok(())
-}
-
-/// Generate the top row
-fn gen_top<'a>(sizes: &Vec<usize>, bold: bool, output: &'a mut String)
-{
-    let font = if bold { BOLD_FONT } else { BASE_FONT };
-
-    // Create the row
-    output.push(font.top_left);
-    for col in sizes
-    {
-        for _ in 0..*col { output.push(font.horizontal) }
-        output.push(font.top_center)
-    }
-    output.pop();
-    output.push(font.top_right);
-}
-
-/// Generate the bottom row
-fn gen_bottom<'a>(sizes: &Vec<usize>, bold: bool, output: &'a mut String)
-{
-    let font = if bold { BOLD_FONT } else { BASE_FONT };
-
-    // Create the row
-    output.push(font.low_left);
-    for col in sizes
-    {
-        for _ in 0..*col { output.push(font.horizontal) }
-        output.push(font.low_center)
-    }
-    output.pop();
-    output.push(font.low_right);
-}
-
-/// Generate a separator row
-fn gen_separator<'a>(sizes: &Vec<usize>, output: &'a mut String)
-{
-    // Create the row
-    output.push(BASE_FONT.mid_left);
-    for col in sizes
-    {
-        for _ in 0..*col { output.push(BASE_FONT.horizontal) }
-        output.push(BASE_FONT.mid_center)
-    }
-    output.pop();
-    output.push(BASE_FONT.mid_right);
-}
-
-/// Generate a row with text
-fn gen_row<'a>(input: &Vec<&str>, cols: &Vec<usize>, output: &'a mut String)
-{
-    output.push(BASE_FONT.vertical);
-    for i in 0..input.len()
-    {
-        gen_cell(input.get(i).unwrap(), cols.get(i).unwrap(), output);
-        output.push(BASE_FONT.vertical);
-    }
-    output.pop();
-    output.push(BASE_FONT.vertical);
-}
-
-/// Generate a single cell. To be called from gen_row
-fn gen_cell<'a>(input: &str, col: &usize, output: &'a mut String)
-{
-    let pads = col - input.len();
-    let half_pads = pads / 2;
-    for _ in 0..half_pads 
-    { 
-        output.push(BASE_FONT.blankspace) 
-    }
-    output.push_str(input);
-    for _ in 0..(half_pads + (pads % 2)) 
-    { 
-        output.push(BASE_FONT.blankspace) 
-    }
 }
 
 /// Convert an input string into tokens based on some delimiters
