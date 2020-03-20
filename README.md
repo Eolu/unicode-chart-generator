@@ -1,6 +1,6 @@
 # Unicode Chart Generator
 
-This is a chart generator which reads in some text from standard input (or a file) and outputs a chart to standard output.
+This is a chart generator which reads in some text from standard input (or a file) and outputs a chart to standard output. My goal is to implement this in new languages as I'm learning them, so the number of languages in this repo will probably increase over time.
 
 Usage is as follows:
 ```
