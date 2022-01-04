@@ -54,7 +54,7 @@ pub fn main() !void
 {
     const stdout = std.io.getStdOut().writer();
 
-    // TODO: Determine exact memory usage and use std.heap.FixedBufferAllocator.
+    // Init allocator
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     defer std.debug.assert(!general_purpose_allocator.deinit());
     const allocator = general_purpose_allocator.allocator();
@@ -65,8 +65,6 @@ pub fn main() !void
 
     // Get input
     var input = try readInput(&allocator, &input_info.in_type);
-
-    // Free input
     defer
     {
         for (input) |element| allocator.free(element);
@@ -75,16 +73,6 @@ pub fn main() !void
 
     // Tokenize input
     var tokens = try tokenize(&allocator, &input_info.delimiters, &input);
-    // for (tokens) |line|
-    // {
-    //     try stdout.print("Line:\n", .{});
-    //     for (line) |token|
-    //     {
-    //         try stdout.print("{s}\n", .{token});
-    //     }
-    // }
-
-    // Free tokens
     defer
     {
         for (tokens) |line| allocator.free(line);
@@ -93,12 +81,6 @@ pub fn main() !void
 
     //  Get column widths
     var widths = try getColumnWidths(&allocator, &tokens);
-    // for (widths) |width|
-    // {
-    //     try stdout.print("Width: {d}\n", .{width});
-    // }
-
-    // Free widths
     defer
     {
         allocator.free(widths);
@@ -106,14 +88,11 @@ pub fn main() !void
 
     // Generate chart
     const result = try chart.genChart(&allocator, &tokens, &widths, input_info.include_header);
-    // if (!std.unicode.utf8ValidateSlice(result))
-    // {
-    //     try stdout.print("Invalid utf8: {any}", .{result});
-    // }
     defer
     {
         allocator.free(result);
     }
+
     try stdout.print("{s}", .{result});
 }
 
