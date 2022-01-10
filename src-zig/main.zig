@@ -29,7 +29,7 @@ const InputInfo = struct
     delimiters: [][]const u8,
     // See InputType union
     in_type: InputType,
-
+    
     /// Free all interior memory
     fn free(self: *InputInfo, allocator: *const Allocator) void
     {
@@ -52,48 +52,22 @@ const InputInfo = struct
 /// Entry-point
 pub fn main() !void 
 {
-    const stdout = std.io.getStdOut().writer();
-
     // Init allocator
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!general_purpose_allocator.deinit());
-    const allocator = general_purpose_allocator.allocator();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    // Handle args
+    // Init and parse
     var input_info = try handleArgs(&allocator);
-    defer input_info.free(&allocator);
-
-    // Get input
     var input = try readInput(&allocator, &input_info.in_type);
-    defer
-    {
-        for (input) |element| allocator.free(element);
-        allocator.free(input);
-    }
-
-    // Tokenize input
     var tokens = try tokenize(&allocator, &input_info.delimiters, &input);
-    defer
-    {
-        for (tokens) |line| allocator.free(line);
-        allocator.free(tokens);
-    }
 
-    //  Get column widths
+    // Gen chart
     var widths = try getColumnWidths(&allocator, &tokens);
-    defer
-    {
-        allocator.free(widths);
-    }
-
-    // Generate chart
     const result = try chart.genChart(&allocator, &tokens, &widths, input_info.include_header);
-    defer
-    {
-        allocator.free(result);
-    }
 
-    try stdout.print("{s}", .{result});
+    // Output resulting chart
+    try std.io.getStdOut().writer().print("{s}", .{result});
 }
 
 fn getColumnWidths(allocator: *const Allocator, tokens: *[][][]const u8) ![]const u8
